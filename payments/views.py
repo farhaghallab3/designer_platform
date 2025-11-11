@@ -1,65 +1,71 @@
-# payments/views.py
+import requests
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
-import stripe
-from django.conf import settings
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
-from django.http import HttpResponse
+from rest_framework import status, permissions
+from .models import Payment
 from orders.models import Order
 
-stripe.api_key = settings.STRIPE_SECRET_KEY
+class CreateTabbyPaymentView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
 
-
-class CreateCheckoutSession(APIView):
-    def post(self, request):
+    def post(self, request, order_id):
         try:
-            order_id = request.data.get("order_id")
-            order = Order.objects.get(id=order_id)
-            amount = int(order.package.price * 100)
+            order = Order.objects.get(id=order_id, client=request.user)
+        except Order.DoesNotExist:
+            return Response({"error": "Order not found"}, status=status.HTTP_404_NOT_FOUND)
 
-            checkout_session = stripe.checkout.Session.create(
-                payment_method_types=["card"],
-                line_items=[
-                    {
-                        "price_data": {
-                            "currency": "usd",
-                            "unit_amount": amount,
-                            "product_data": {"name": order.package.name},
-                        },
-                        "quantity": 1,
-                    }
-                ],
-                mode="payment",
-                success_url=settings.FRONTEND_URL + "/success?session_id={CHECKOUT_SESSION_ID}",
-                cancel_url=settings.FRONTEND_URL + "/cancel",
-                metadata={"order_id": order.id},
+        # Example Tabby API request payload
+        payload = {
+            "payment": {
+                "amount": order.price_cents / 100,
+                "currency": "SAR",
+                "description": order.project_name,
+                "buyer": {
+                    "email": order.email,
+                    "phone": order.phone,
+                    "name": request.user.username,
+                },
+                "merchant_urls": {
+                    "success": "https://yourfrontend.com/payment-success",
+                    "cancel": "https://yourfrontend.com/payment-cancel",
+                    "failure": "https://yourfrontend.com/payment-failed",
+                }
+            }
+        }
+
+        headers = {
+            "Authorization": "Bearer YOUR_TABBY_SECRET_KEY",
+            "Content-Type": "application/json"
+        }
+
+        response = requests.post("https://api.tabby.ai/api/v2/checkout", json=payload, headers=headers)
+
+        if response.status_code == 200:
+            data = response.json()
+            payment_url = data["configuration"]["available_products"]["installments"][0]["web_url"]
+
+            Payment.objects.create(
+                order=order,
+                provider="tabby",
+                payment_url=payment_url
             )
-            return Response({"sessionId": checkout_session["id"]})
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+            return Response({"payment_url": payment_url})
+        else:
+            return Response({"error": response.text}, status=response.status_code)
+class PaymentWebhookView(APIView):
+    permission_classes = [permissions.AllowAny]
 
-@method_decorator(csrf_exempt, name="dispatch")
-class StripeWebhook(APIView):
     def post(self, request):
-        payload = request.body
-        sig_header = request.META.get("HTTP_STRIPE_SIGNATURE")
-        event = None
+        event = request.data
+        transaction_id = event.get("id")
+        status_update = event.get("status")
 
         try:
-            event = stripe.Webhook.construct_event(
-                payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
-            )
-        except stripe.error.SignatureVerificationError:
-            return HttpResponse(status=400)
+            payment = Payment.objects.get(transaction_id=transaction_id)
+            payment.status = status_update
+            payment.save()
+        except Payment.DoesNotExist:
+            pass
 
-        if event["type"] == "checkout.session.completed":
-            session = event["data"]["object"]
-            order_id = session["metadata"]["order_id"]
-            order = Order.objects.get(id=order_id)
-            order.status = "Paid"
-            order.save()
-
-        return HttpResponse(status=200)
+        return Response({"status": "ok"})
