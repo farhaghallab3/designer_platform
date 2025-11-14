@@ -14,58 +14,64 @@ class CreateTabbyPaymentView(APIView):
         except Order.DoesNotExist:
             return Response({"error": "Order not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        # Example Tabby API request payload
-        payload = {
-            "payment": {
-                "amount": order.price_cents / 100,
-                "currency": "SAR",
-                "description": order.project_name,
-                "buyer": {
-                    "email": order.email,
-                    "phone": order.phone,
-                    "name": request.user.username,
-                },
-                "merchant_urls": {
-                    "success": "https://yourfrontend.com/payment-success",
-                    "cancel": "https://yourfrontend.com/payment-cancel",
-                    "failure": "https://yourfrontend.com/payment-failed",
-                }
-            }
-        }
+        # MOCK PAYMENT - For testing without real API
+        mock_payment_url = "https://checkout.tabby.ai/mock-payment-page"
+        mock_transaction_id = f"tabby_mock_{order_id}_{order.price_cents}"
 
-        headers = {
-            "Authorization": "Bearer YOUR_TABBY_SECRET_KEY",
-            "Content-Type": "application/json"
-        }
+        # Create payment record
+        payment = Payment.objects.create(
+            order=order,
+            provider="tabby",
+            payment_url=mock_payment_url,
+            transaction_id=mock_transaction_id,
+            status="pending"
+        )
 
-        response = requests.post("https://api.tabby.ai/api/v2/checkout", json=payload, headers=headers)
+        return Response({
+            "payment_url": mock_payment_url,
+            "transaction_id": mock_transaction_id,
+            "status": "pending",
+            "message": "Mock payment created successfully"
+        })
 
-        if response.status_code == 200:
-            data = response.json()
-            payment_url = data["configuration"]["available_products"]["installments"][0]["web_url"]
+class MockPaymentSuccessView(APIView):
+    """Simulate successful payment for testing"""
+    permission_classes = [permissions.IsAuthenticated]
 
-            Payment.objects.create(
-                order=order,
-                provider="tabby",
-                payment_url=payment_url
-            )
+    def post(self, request, transaction_id):
+        try:
+            payment = Payment.objects.get(transaction_id=transaction_id)
+            payment.status = "paid"
+            payment.save()
+            
+            # Update order status if needed
+            payment.order.status = "paid"  # Add this field to Order model if needed
+            payment.order.save()
+            
+            return Response({"status": "payment_success", "transaction_id": transaction_id})
+        except Payment.DoesNotExist:
+            return Response({"error": "Payment not found"}, status=status.HTTP_404_NOT_FOUND)
 
-            return Response({"payment_url": payment_url})
-        else:
-            return Response({"error": response.text}, status=response.status_code)
 class PaymentWebhookView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
+        # For mock testing, you can manually call this or use the MockPaymentSuccessView
         event = request.data
-        transaction_id = event.get("id")
+        transaction_id = event.get("id") or event.get("transaction_id")
         status_update = event.get("status")
 
         try:
             payment = Payment.objects.get(transaction_id=transaction_id)
             payment.status = status_update
             payment.save()
+            
+            # Update order status based on payment status
+            if status_update == "paid":
+                payment.order.status = "paid"  # Add this to your Order model
+                payment.order.save()
+                
         except Payment.DoesNotExist:
-            pass
+            return Response({"error": "Payment not found"}, status=status.HTTP_404_NOT_FOUND)
 
         return Response({"status": "ok"})

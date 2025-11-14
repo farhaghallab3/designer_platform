@@ -168,8 +168,15 @@ SIMPLE_JWT = {
 }
 
 # CORS
-CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=['http://localhost:5173'])
+# CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=['http://localhost:5173'])
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "https://isabel-ungummed-interjectorily.ngrok-free.dev",
+    "http://localhost:5173"
+    ]
 
+GREEN_API_ID_INSTANCE = "7107377441"  # Replace with your real instance ID
+GREEN_API_TOKEN = "accf25cca26d4769a87a317285c656d7af84fca6eb8c41a084" 
 # Stripe / Twilio
 STRIPE_SECRET_KEY = env('STRIPE_SECRET_KEY', default='')
 STRIPE_WEBHOOK_SECRET = env('STRIPE_WEBHOOK_SECRET', default='')
