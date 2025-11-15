@@ -237,3 +237,14 @@ AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
     'accounts.backends.EmailBackend',  # Optional: if you want email authentication
 ]
+
+# Add to settings.py
+import os
+from django.core.management import execute_from_command_line
+
+# Auto-migrate on startup in production
+if not os.environ.get('DEBUG', '').lower() == 'true':
+    try:
+        execute_from_command_line(['manage.py', 'migrate'])
+    except:
+        pass  # Ignore errors during settings import
