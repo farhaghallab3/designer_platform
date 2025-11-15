@@ -1,5 +1,5 @@
 # Your current dependencies based on your project:
-Django==4.2.26
+Django==5.2
 django-environ==0.11.2
 gunicorn==23.0.0
 psycopg2-binary==2.9.9
