@@ -30,7 +30,7 @@ SECRET_KEY = env('SECRET_KEY', default='django-insecure-fallback-key-for-develop
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool('DEBUG', default=False)
 
-ALLOWED_HOSTS = env.list('DJANGO_ALLOWED_HOSTS', default=['127.0.0.1', 'localhost', '.ngrok-free.dev'])
+ALLOWED_HOSTS = env.list('DJANGO_ALLOWED_HOSTS', default=['127.0.0.1', 'localhost', '.ngrok-free.dev' , '.railway.app'])
 
 
 
@@ -100,30 +100,60 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # }
 
 # In your settings.py
-import os
+# import os
+# import dj_database_url
+
+# # Database configuration for Railway
+# DATABASES = {
+#     'default': dj_database_url.config(
+#         default=os.environ.get('DATABASE_URL'),
+#         conn_max_age=600,
+#         conn_health_checks=True,
+#     )
+# }
+
+# # If DATABASE_URL is not set, fall back to local development
+# if not os.environ.get('DATABASE_URL'):
+#     DATABASES = {
+#         'default': {
+#             'ENGINE': 'django.db.backends.postgresql',
+#             'NAME': os.environ.get('POSTGRES_DB', 'designer_db'),
+#             'USER': os.environ.get('POSTGRES_USER', 'postgres'),
+#             'PASSWORD': os.environ.get('POSTGRES_PASSWORD', ''),
+#             'HOST': os.environ.get('POSTGRES_HOST', 'localhost'),
+#             'PORT': os.environ.get('POSTGRES_PORT', '5432'),
+#         }
+#     }
+
+#     DATABASES = {
+#     'default': dj_database_url.config(
+#         default=os.environ.get('DATABASE_URL'),
+#         conn_max_age=600,
+#         conn_health_checks=True,
+#     )
+# }
+
+
+# Database configuration
+# Simple database configuration
 import dj_database_url
 
-# Database configuration for Railway
 DATABASES = {
     'default': dj_database_url.config(
-        default=os.environ.get('DATABASE_URL'),
+        default=os.environ.get('DATABASE_URL', 'sqlite:///db.sqlite3'),
         conn_max_age=600,
         conn_health_checks=True,
     )
 }
 
-# If DATABASE_URL is not set, fall back to local development
-if not os.environ.get('DATABASE_URL'):
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.environ.get('POSTGRES_DB', 'designer_db'),
-            'USER': os.environ.get('POSTGRES_USER', 'postgres'),
-            'PASSWORD': os.environ.get('POSTGRES_PASSWORD', ''),
-            'HOST': os.environ.get('POSTGRES_HOST', 'localhost'),
-            'PORT': os.environ.get('POSTGRES_PORT', '5432'),
-        }
-    }
+# Override with DATABASE_URL if it exists (for production)
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if DATABASE_URL:
+    DATABASES['default'] = dj_database_url.config(
+        default=DATABASE_URL,
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
 
 AUTH_USER_MODEL = 'accounts.User' 
 
