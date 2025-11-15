@@ -238,6 +238,10 @@ AUTHENTICATION_BACKENDS = [
     'accounts.backends.EmailBackend',  # Optional: if you want email authentication
 ]
 
+# In settings.py
+import os
+PORT = os.environ.get('PORT', '8000')
+
 # Add to settings.py
 import os
 from django.core.management import execute_from_command_line
