@@ -90,9 +90,6 @@ TEMPLATES = [
 WSGI_APPLICATION = 'core.wsgi.application'
 
 # Database configuration
-import dj_database_url
-
-# Check if we're in production (Railway) or development
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
 if DATABASE_URL and DATABASE_URL.startswith('postgres://'):
@@ -145,9 +142,6 @@ STATIC_URL = '/static/'
 MEDIA_URL = '/media/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-# STATICFILES_DIRS = [
-#     os.path.join(BASE_DIR, 'static'),
-# ]
 
 # WhiteNoise configuration for Django 4.2+
 STORAGES = {
@@ -226,43 +220,7 @@ REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
 
-# In settings.py - TEMPORARY FIX
-DEBUG = True
-ALLOWED_HOSTS = ['*']
-# settings.py
+# Authentication backends
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
-    'accounts.backends.EmailBackend',  # Optional: if you want email authentication
 ]
-
-# In settings.py
-import os
-PORT = os.environ.get('PORT', '8000')
-
-# Add to settings.py
-import os
-from django.core.management import execute_from_command_line
-
-# Auto-migrate on startup in production
-if not os.environ.get('DEBUG', '').lower() == 'true':
-    try:
-        execute_from_command_line(['manage.py', 'migrate'])
-    except:
-        pass  # Ignore errors during settings import
-    
-# Add to settings.py
-import os
-
-# Railway specific settings
-if 'RAILWAY_STATIC_URL' in os.environ:
-    STATIC_URL = os.environ['RAILWAY_STATIC_URL']
-    
-if 'DATABASE_URL' in os.environ:
-    import dj_database_url
-    DATABASES = {
-        'default': dj_database_url.config(
-            conn_max_age=600,
-            conn_health_checks=True,
-            ssl_require=True
-        )
-    }    
