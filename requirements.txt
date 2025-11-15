@@ -21,3 +21,7 @@ whitenoise[brotli]
 psycopg2-binary
 dj-database-url
 python-dotenv
+gunicorn
+whitenoise
+dj-database-url
+psycopg2-binary
