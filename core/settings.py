@@ -14,6 +14,7 @@ from pathlib import Path
 import os
 import environ
 from datetime import timedelta
+import dj_database_url
 
 # Initialize environment
 env = environ.Env()
@@ -25,20 +26,18 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = env('SECRET_KEY', default='django-insecure-fallback-key-for-development-only')
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-fallback-key-for-development-only')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env.bool('DEBUG', default=False)
+DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 
-ALLOWED_HOSTS = env.list('DJANGO_ALLOWED_HOSTS', default=['127.0.0.1', 'localhost', '.ngrok-free.dev' , '.railway.app', 'designerplatform-production.up.railway.app',
-    '.railway.app',])
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '127.0.0.1,localhost,.railway.app,designerplatform-production.up.railway.app').split(',')
 
 CSRF_TRUSTED_ORIGINS = [
     'https://designerplatform-production.up.railway.app',
     'https://*.railway.app'
 ]
 
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 # Application definition
 
 INSTALLED_APPS = [
@@ -90,82 +89,18 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
-
-# Database
-# https://docs.djangoproject.com/en/4.2/ref/settings/#databases
-
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': env('POSTGRES_DB', default='designer_db'),
-#         'USER': env('POSTGRES_USER', default='designer_user'),
-#         'PASSWORD': env('POSTGRES_PASSWORD', default='designer_pass'),
-#         'HOST': env('POSTGRES_HOST', default='localhost'),
-#         'PORT': env('POSTGRES_PORT', default='5432'),
-#     }
-# }
-
-# In your settings.py
-# import os
-# import dj_database_url
-
-# # Database configuration for Railway
-# DATABASES = {
-#     'default': dj_database_url.config(
-#         default=os.environ.get('DATABASE_URL'),
-#         conn_max_age=600,
-#         conn_health_checks=True,
-#     )
-# }
-
-# # If DATABASE_URL is not set, fall back to local development
-# if not os.environ.get('DATABASE_URL'):
-#     DATABASES = {
-#         'default': {
-#             'ENGINE': 'django.db.backends.postgresql',
-#             'NAME': os.environ.get('POSTGRES_DB', 'designer_db'),
-#             'USER': os.environ.get('POSTGRES_USER', 'postgres'),
-#             'PASSWORD': os.environ.get('POSTGRES_PASSWORD', ''),
-#             'HOST': os.environ.get('POSTGRES_HOST', 'localhost'),
-#             'PORT': os.environ.get('POSTGRES_PORT', '5432'),
-#         }
-#     }
-
-#     DATABASES = {
-#     'default': dj_database_url.config(
-#         default=os.environ.get('DATABASE_URL'),
-#         conn_max_age=600,
-#         conn_health_checks=True,
-#     )
-# }
-
-
 # Database configuration
-# Simple database configuration
-import dj_database_url
-
 DATABASES = {
     'default': dj_database_url.config(
         default=os.environ.get('DATABASE_URL', 'sqlite:///db.sqlite3'),
         conn_max_age=600,
-        conn_health_checks=True,
+        ssl_require=True
     )
 }
-
-# Override with DATABASE_URL if it exists (for production)
-DATABASE_URL = os.environ.get('DATABASE_URL')
-if DATABASE_URL:
-    DATABASES['default'] = dj_database_url.config(
-        default=DATABASE_URL,
-        conn_max_age=600,
-        conn_health_checks=True,
-    )
 
 AUTH_USER_MODEL = 'accounts.User' 
 
 # Password validation
-# https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
-
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
@@ -181,10 +116,7 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
-# https://docs.djangoproject.com/en/4.2/topics/i18n/
-
 LANGUAGE_CODE = 'en-us'
 
 TIME_ZONE = 'UTC'
@@ -193,18 +125,29 @@ USE_I18N = True
 
 USE_TZ = True
 
-
 # Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/4.2/howto/static-files/
-
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 MEDIA_URL = '/media/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+]
+
+# WhiteNoise configuration for Django 4.2+
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
 # Default primary key field type
-# https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# REST Framework configuration
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -214,36 +157,59 @@ REST_FRAMEWORK = {
     ],
 }
 
-from datetime import timedelta
+# JWT Configuration
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=int(env('SIMPLE_JWT_ACCESS_TOKEN_LIFETIME_MINUTES', default=60))),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=int(os.environ.get('SIMPLE_JWT_ACCESS_TOKEN_LIFETIME_MINUTES', 60))),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
 }
 
-# CORS
-# CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=['http://localhost:5173'])
+# CORS Configuration
 CORS_ALLOWED_ORIGINS = [
-    "https://vivoragency.netlify.app/",
+    "https://vivoragency.netlify.app",
     "http://localhost:3000",
-    "http://localhost:3001",
-    "https://isabel-ungummed-interjectorily.ngrok-free.dev",
-    "http://localhost:5173"
-    ]
+    "http://127.0.0.1:3000",
+]
 
-GREEN_API_ID_INSTANCE = "7107377441"  # Replace with your real instance ID
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_ALL_ORIGINS = False
+
+# Additional CORS settings
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
+# Green API Configuration
+GREEN_API_ID_INSTANCE = "7107377441"
 GREEN_API_TOKEN = "accf25cca26d4769a87a317285c656d7af84fca6eb8c41a084" 
-# Stripe / Twilio
-STRIPE_SECRET_KEY = env('STRIPE_SECRET_KEY', default='')
-STRIPE_WEBHOOK_SECRET = env('STRIPE_WEBHOOK_SECRET', default='')
 
-TWILIO_ACCOUNT_SID = env('TWILIO_ACCOUNT_SID', default='')
-TWILIO_AUTH_TOKEN = env('TWILIO_AUTH_TOKEN', default='')
-TWILIO_WHATSAPP_NUMBER = env('TWILIO_WHATSAPP_NUMBER', default='')
-TWILIO_SMS_FROM_NUMBER = env('TWILIO_SMS_FROM_NUMBER', default='')
+# Stripe Configuration
+STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '')
+STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
 
-# Celery settings (optional)
-REDIS_URL = env('REDIS_URL', default='redis://localhost:6379/0')
+# Twilio Configuration
+TWILIO_ACCOUNT_SID = os.environ.get('TWILIO_ACCOUNT_SID', '')
+TWILIO_AUTH_TOKEN = os.environ.get('TWILIO_AUTH_TOKEN', '')
+TWILIO_WHATSAPP_NUMBER = os.environ.get('TWILIO_WHATSAPP_NUMBER', '')
+TWILIO_SMS_FROM_NUMBER = os.environ.get('TWILIO_SMS_FROM_NUMBER', '')
+
+# Celery Configuration
+REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
-
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
