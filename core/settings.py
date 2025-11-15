@@ -228,3 +228,12 @@ TWILIO_SMS_FROM_NUMBER = os.environ.get('TWILIO_SMS_FROM_NUMBER', '')
 REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
+
+# In settings.py - TEMPORARY FIX
+DEBUG = True
+ALLOWED_HOSTS = ['*']
+# settings.py
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    'accounts.backends.EmailBackend',  # Optional: if you want email authentication
+]
