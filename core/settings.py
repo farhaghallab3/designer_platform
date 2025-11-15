@@ -252,3 +252,20 @@ if not os.environ.get('DEBUG', '').lower() == 'true':
         execute_from_command_line(['manage.py', 'migrate'])
     except:
         pass  # Ignore errors during settings import
+    
+# Add to settings.py
+import os
+
+# Railway specific settings
+if 'RAILWAY_STATIC_URL' in os.environ:
+    STATIC_URL = os.environ['RAILWAY_STATIC_URL']
+    
+if 'DATABASE_URL' in os.environ:
+    import dj_database_url
+    DATABASES = {
+        'default': dj_database_url.config(
+            conn_max_age=600,
+            conn_health_checks=True,
+            ssl_require=True
+        )
+    }    
