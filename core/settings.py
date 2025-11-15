@@ -88,16 +88,42 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': env('POSTGRES_DB', default='designer_db'),
+#         'USER': env('POSTGRES_USER', default='designer_user'),
+#         'PASSWORD': env('POSTGRES_PASSWORD', default='designer_pass'),
+#         'HOST': env('POSTGRES_HOST', default='localhost'),
+#         'PORT': env('POSTGRES_PORT', default='5432'),
+#     }
+# }
+
+# In your settings.py
+import os
+import dj_database_url
+
+# Database configuration for Railway
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': env('POSTGRES_DB', default='designer_db'),
-        'USER': env('POSTGRES_USER', default='designer_user'),
-        'PASSWORD': env('POSTGRES_PASSWORD', default='designer_pass'),
-        'HOST': env('POSTGRES_HOST', default='localhost'),
-        'PORT': env('POSTGRES_PORT', default='5432'),
-    }
+    'default': dj_database_url.config(
+        default=os.environ.get('DATABASE_URL'),
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
 }
+
+# If DATABASE_URL is not set, fall back to local development
+if not os.environ.get('DATABASE_URL'):
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ.get('POSTGRES_DB', 'designer_db'),
+            'USER': os.environ.get('POSTGRES_USER', 'postgres'),
+            'PASSWORD': os.environ.get('POSTGRES_PASSWORD', ''),
+            'HOST': os.environ.get('POSTGRES_HOST', 'localhost'),
+            'PORT': os.environ.get('POSTGRES_PORT', '5432'),
+        }
+    }
 
 AUTH_USER_MODEL = 'accounts.User' 
 
