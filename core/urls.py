@@ -4,13 +4,17 @@ from django.urls import path, include
 from rest_framework import routers
 
 from designers.views import PackageViewSet, DesignerProfileViewSet
-from orders.views import OrderViewSet
-from notifications.views import TwilioWebhookView  
+# from orders.views import OrderViewSet
+from notifications.views import TwilioWebhookView 
+from orders.views import chatbot_handler 
 
 router = routers.DefaultRouter()
 router.register(r'packages', PackageViewSet, basename='packages')
 router.register(r'designers', DesignerProfileViewSet, basename='designers')  # This creates /api/designers/
-router.register(r'orders', OrderViewSet, basename='orders')
+# router.register(r'orders', OrderViewSet, basename='orders')
+path('api/chatbot/', chatbot_handler, name='chatbot'),
+# path('api/chatbot/', chatbot_debug, name='chatbot'),
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),

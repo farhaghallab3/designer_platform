@@ -1,126 +1,151 @@
-from rest_framework import viewsets, permissions, status
-from rest_framework.decorators import action
+# orders/views.py
+from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from rest_framework.parsers import MultiPartParser, FormParser
-from django.conf import settings
-from .models import Order, OrderFile
-from .serializers import OrderSerializer, OrderFileSerializer
+from rest_framework import status
+from django.contrib.auth import get_user_model
+from .models import Order
 
-class OrderViewSet(viewsets.ModelViewSet):
-    serializer_class = OrderSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
+User = get_user_model()
 
-    def get_queryset(self):
-        user = self.request.user
-        if user.is_staff:
-            return Order.objects.all().order_by('-created_at')
-        return Order.objects.filter(client=user).order_by('-created_at')
+@api_view(['POST'])
+def chatbot_handler(request):
+    user_message = request.data.get('message', '').strip()
+    user_id = request.data.get('user_id')
+    username = request.data.get('username')
+    phone_number = request.data.get('phone_number')
 
-    def perform_create(self, serializer):
-        order = serializer.save(client=self.request.user)
-        # Send notification if Twilio is configured
-        self.send_order_notification(order)
-
-    def create(self, request, *args, **kwargs):
-        # Handle file uploads in the create method
-        files = request.FILES.getlist('files')
-        
-        # Create the order first
-        response = super().create(request, *args, **kwargs)
-        
-        # If order was created successfully, handle file uploads
-        if response.status_code == status.HTTP_201_CREATED and files:
-            order_id = response.data['id']
-            order = Order.objects.get(id=order_id)
-            
-            uploaded_files = []
-            for file in files:
-                order_file = OrderFile.objects.create(order=order, file=file)
-                uploaded_files.append({
-                    'name': file.name,
-                    'url': order_file.file.url
-                })
-            
-            # Update the order with file information
-            order.files = uploaded_files
-            order.save()
-            
-            # Update response data to include files
-            response.data['files'] = uploaded_files
-
-        return response
-
-    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated], parser_classes=[MultiPartParser, FormParser])
-    def upload_file(self, request, pk=None):
-        order = self.get_object()
-        file_obj = request.FILES.get('file')
-        
-        if not file_obj:
-            return Response({'detail': 'No file provided'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        order_file = OrderFile.objects.create(order=order, file=file_obj)
-        
-        # Update the order's files JSON field
-        if not order.files:
-            order.files = []
-        
-        order.files.append({
-            'name': file_obj.name,
-            'url': order_file.file.url,
-            'uploaded_at': order_file.uploaded_at.isoformat()
-        })
-        order.save()
-        
-        return Response(OrderFileSerializer(order_file).data, status=status.HTTP_201_CREATED)
-
-    def send_order_notification(self, order):
-        """Send WhatsApp/SMS notification when order is created"""
+    # Get user object if available
+    user = None
+    if user_id:
         try:
-            # Only send if Twilio is configured
-            if (hasattr(settings, 'TWILIO_ACCOUNT_SID') and 
-                hasattr(settings, 'TWILIO_AUTH_TOKEN') and 
-                hasattr(settings, 'TWILIO_WHATSAPP_NUMBER')):
-                
-                from twilio.rest import Client
-                client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            pass
 
-                message_text = f"مرحباً {order.full_name}، تم استلام طلبك '{order.project_name}' بنجاح وجاري المراجعة. سنتواصل معك قريباً."
+    # Process the message and generate dynamic response
+    response_text = process_chatbot_message(user_message, user, username)
 
-                # WhatsApp message
-                client.messages.create(
-                    from_=settings.TWILIO_WHATSAPP_NUMBER,
-                    to=f"whatsapp:{order.phone}",
-                    body=message_text
-                )
+    return Response({'reply': response_text})
 
-                # Optional: SMS fallback
-                if hasattr(settings, 'TWILIO_SMS_NUMBER'):
-                    client.messages.create(
-                        from_=settings.TWILIO_SMS_NUMBER,
-                        to=order.phone,
-                        body=message_text
-                    )
-                    
-        except Exception as e:
-            # Log the error but don't break the order creation
-            print(f"Failed to send notification: {e}")
+def process_chatbot_message(message, user, username):
+    message = message.strip()
+    
+    # Remove any emojis or special characters for easier matching
+    clean_message = ''.join(char for char in message if char.isalnum() or char.isspace())
+    
+    print(f"Processing message: '{message}' from user: {username}")  # Debug log
 
-def send_order_whatsapp(to_number, order_id):
-    """Utility function to send WhatsApp message"""
-    try:
-        if (hasattr(settings, 'TWILIO_ACCOUNT_SID') and 
-            hasattr(settings, 'TWILIO_AUTH_TOKEN') and 
-            hasattr(settings, 'TWILIO_WHATSAPP_NUMBER')):
+    # Track order status
+    if message in ['1', '1️⃣', 'order', 'track', 'حالة الطلب', 'طلب']:
+        return get_order_status(user, username)
+    
+    # Contact designer
+    elif message in ['2', '2️⃣', 'designer', 'مصمم', 'تصميم']:
+        return get_designer_contact(user, username)
+    
+    # Contact marketer
+    elif message in ['3', '3️⃣', 'marketer', 'مسوق', 'تسويق']:
+        return get_marketer_contact(user, username)
+    
+    # Help or unknown message
+    else:
+        return get_help_message(username)
+
+def get_order_status(user, username):
+    if not user:
+        return "👤 يرجى تسجيل الدخول لمشاهدة حالة طلباتك."
+    
+    # Get user's recent orders
+    recent_orders = Order.objects.filter(client=user).order_by('-created_at')[:5]
+    
+    if recent_orders.exists():
+        response = "📦 **طلباتك الأخيرة:**\n\n"
+        for order in recent_orders:
+            status_ar = {
+                'pending': '🟡 قيد الانتظار',
+                'in_progress': '🟠 قيد التنفيذ', 
+                'completed': '🟢 مكتمل',
+                'delivered': '✅ تم التسليم'
+            }.get(order.status, order.status)
             
-            from twilio.rest import Client
-            client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-            
-            message = f"✅ تم استلام طلبك #{order_id} بنجاح وجاري المراجعة. سنتواصل معك قريباً!"
-            client.messages.create(
-                from_=settings.TWILIO_WHATSAPP_NUMBER,
-                to=f"whatsapp:{to_number}",
-                body=message
-            )
-    except Exception as e:
-        print(f"Failed to send WhatsApp: {e}")
+            response += f"**{order.project_name}**\n"
+            response += f"الحالة: {status_ar}\n"
+            response += f"التاريخ: {order.created_at.strftime('%Y-%m-%d')}\n"
+            response += f"المصمم: {order.designer.user.username if order.designer else 'لم يتم التعيين'}\n"
+            response += "――――――――――\n"
+        
+        response += "\nللمزيد من التفاصيل، تفضل بزيارة لوحة التحكم."
+        return response
+    else:
+        return "❌ **لم يتم العثور على أي طلبات**\n\nحسابك لا يحتوي على أي طلبات حالياً.\n\nيمكنك تقديم طلب جديد من خلال:\n• الذهاب إلى صفحة 'الباقات'\n• اختيار الباقة المناسبة\n• تعبئة نموذج الطلب\n\nهل تحتاج مساعدة في اختيار الباقة المناسبة؟ 😊"
+
+def get_designer_contact(user, username):
+    if user:
+        # Check if user has any orders with assigned designers
+        user_orders = Order.objects.filter(client=user).exclude(designer__isnull=True)
+        
+        if user_orders.exists():
+            # Get the most recent order's designer
+            recent_order = user_orders.first()
+            designer = recent_order.designer
+            return f"""🎨 **المصمم المختص بك:**
+
+**الاسم:** {designer.user.get_full_name() or designer.user.username}
+**التخصص:** {designer.specialty or 'تصميم عام'}
+**الهاتف:** {designer.phone or 'غير متوفر'}
+**البريد:** {designer.user.email}
+
+يمكنك التواصل معه مباشرة خلال ساعات العمل (9 ص - 6 م)"""
+        else:
+            return f"""🎨 **فريق التصميم**
+
+حالياً لا يوجد مصمم مختص بك لأنك لم تقدم أي طلبات بعد.
+
+**للحصول على مصمم مختص:**
+1️⃣ اختر باقة مناسبة
+2️⃣ قدم طلب جديد
+3️⃣ سنقوم بتعيين أفضل مصمم لمشروعك
+
+**للاستفسارات العامة:**
+📞 0501234567
+✉️ designers@vivora.com"""
+    else:
+        return """🎨 **فريق التصميم:**
+
+📞 0501234567
+✉️ designers@vivora.com
+
+**ساعات العمل:** 9 ص - 6 م
+**أيام العمل:** الأحد - الخميس
+
+اختر باقة مناسبة وسنقوم بتعيين أفضل مصمم لمشروعك! ✨"""
+
+def get_marketer_contact():
+    return """📊 **فريق التسويق:**
+
+📞 0507654321
+✉️ marketing@vivora.com
+
+**الخدمات:**
+• استراتيجيات التسويق
+• تحليل الأداء
+• إدارة الحملات
+• تقارير الأداء
+
+**ساعات العمل:** 9 ص - 6 م
+**أيام العمل:** الأحد - الخميس
+
+متاحون لمساعدتك في تطوير استراتيجية تسويق ناجحة لمشروعك! 🚀"""
+
+def get_help_message(username):
+    greeting = f"مرحباً {username} 👋" if username else "مرحباً 👋"
+    
+    return f"""{greeting}
+
+اختر أحد الخيارات:
+
+1️⃣ **حالة الطلب** - تتبع طلباتك الحالية والجديدة
+2️⃣ **التواصل مع المصمم** - معلومات الاتصال بالمصمم المختص بك
+3️⃣ **التواصل مع المسوق** - فريق التسويق والدعم الاستشاري
+
+أو اكتب استفسارك المباشر وسنسعد بمساعدتك... 💫"""
