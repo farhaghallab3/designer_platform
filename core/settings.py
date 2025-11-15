@@ -90,13 +90,28 @@ TEMPLATES = [
 WSGI_APPLICATION = 'core.wsgi.application'
 
 # Database configuration
-DATABASES = {
-    'default': dj_database_url.config(
-        default=os.environ.get('DATABASE_URL', 'sqlite:///db.sqlite3'),
-        conn_max_age=600,
-        ssl_require=True
-    )
-}
+import dj_database_url
+
+# Check if we're in production (Railway) or development
+DATABASE_URL = os.environ.get('DATABASE_URL')
+
+if DATABASE_URL and DATABASE_URL.startswith('postgres://'):
+    # Production - PostgreSQL on Railway
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=DATABASE_URL,
+            conn_max_age=600,
+            ssl_require=True
+        )
+    }
+else:
+    # Development - SQLite locally
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 AUTH_USER_MODEL = 'accounts.User' 
 
