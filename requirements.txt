@@ -1,23 +1,9 @@
-# Your current dependencies based on your project:
 Django==4.2.26
-django-environ==0.11.2
-gunicorn==23.0.0
+gunicorn==21.2.0
+whitenoise[brotli]==6.6.0
 psycopg2-binary==2.9.9
-whitenoise==6.6.0
+dj-database-url==2.1.0
 django-cors-headers==4.3.1
 djangorestframework==3.14.0
 djangorestframework-simplejwt==5.3.1
-Pillow==10.2.0
-django-anymail==10.2
-celery==5.3.4
-redis==5.0.1
-requests==2.31.0
-stripe==7.7.0
-twilio==9.2.1
-dj-database-url==2.1.0  # ← ADD THIS FOR RAILWAY
-Django>=4.0
-gunicorn
-whitenoise[brotli]
-psycopg2-binary
-dj-database-url
-python-dotenv
+django-environ==0.10.0
