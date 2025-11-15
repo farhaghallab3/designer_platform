@@ -30,9 +30,13 @@ SECRET_KEY = env('SECRET_KEY', default='django-insecure-fallback-key-for-develop
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool('DEBUG', default=False)
 
-ALLOWED_HOSTS = env.list('DJANGO_ALLOWED_HOSTS', default=['127.0.0.1', 'localhost', '.ngrok-free.dev' , '.railway.app'])
+ALLOWED_HOSTS = env.list('DJANGO_ALLOWED_HOSTS', default=['127.0.0.1', 'localhost', '.ngrok-free.dev' , '.railway.app', 'designerplatform-production.up.railway.app',
+    '.railway.app',])
 
-
+CSRF_TRUSTED_ORIGINS = [
+    'https://designerplatform-production.up.railway.app',
+    'https://*.railway.app'
+]
 
 # Application definition
 
