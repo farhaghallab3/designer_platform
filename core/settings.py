@@ -167,6 +167,8 @@ TWILIO_SMS_FROM_NUMBER = os.environ.get('TWILIO_SMS_FROM_NUMBER', '')
 REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
+import logging
+logging.basicConfig(level=logging.DEBUG)
 
 LOGGING = {
     'version': 1,
