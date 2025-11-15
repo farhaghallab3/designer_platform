@@ -223,6 +223,7 @@ SIMPLE_JWT = {
 # CORS
 # CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=['http://localhost:5173'])
 CORS_ALLOWED_ORIGINS = [
+    "https://vivoragency.netlify.app/",
     "http://localhost:3000",
     "http://localhost:3001",
     "https://isabel-ungummed-interjectorily.ngrok-free.dev",
